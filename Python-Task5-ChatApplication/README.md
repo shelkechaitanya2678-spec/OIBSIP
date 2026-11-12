@@ -8,7 +8,7 @@ Part of the Oasis Infobyte internship, Python track, Task 5.
 - [x] Client that connects and exchanges messages in real time (`client.py`)
 - [x] Timestamped messages (`[HH:MM] Name: text`)
 - [x] Join and disconnect notifications
-- [ ] Graphical interface (tkinter or Flask)
+- [x] Graphical interface (tkinter, `gui_client.py`)
 - [ ] User registration and login stored in SQLite
 - [ ] Multiple chat rooms (create and join)
 - [ ] Message history loaded on join (SQLite)
@@ -22,10 +22,11 @@ Open two terminals in this folder.
 
 ```bash
 python server.py
-python client.py   # run in each terminal, one per user
+python client.py      # terminal client, one per user
+python gui_client.py  # window client, one per user
 ```
 
-Type a message and press Enter. Type `/quit` to leave.
+Type a message and press Enter. In the terminal client, type `/quit` to leave.
 
 ## Design notes
 
