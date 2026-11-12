@@ -2,41 +2,68 @@
 
 Part of the Oasis Infobyte internship, Python track, Task 5.
 
-## Status
+## Features
 
-- [x] Socket server that accepts multiple clients (`server.py`)
-- [x] Client that connects and exchanges messages in real time (`client.py`)
-- [x] Timestamped messages (`[HH:MM] Name: text`)
-- [x] Join and disconnect notifications
-- [x] Graphical interface (tkinter, `gui_client.py`)
-- [ ] User registration and login stored in SQLite
-- [ ] Multiple chat rooms (create and join)
-- [ ] Message history loaded on join (SQLite)
-- [ ] New-message notifications when the window is unfocused
-- [ ] Emoji shortcode rendering (for example `:smile:`)
-- [ ] Storage and encryption documentation (below)
+- Accounts: register and log in. Passwords are hashed with PBKDF2-SHA256 and a per-user salt.
+- Rooms: join any room by name. Rooms are created on first use.
+- Message history: the last 50 messages in a room are sent when you join it.
+- Real-time chat between any number of clients, with timestamps and join/leave notices.
+- Emoji shortcodes such as `:smile:`, `:fire:` and `:rocket:` are converted to emoji.
+- Notifications: the GUI flashes its title and beeps when a message arrives while the window is in the background.
+- Two clients: a tkinter window (`gui_client.py`) and a terminal client (`client.py`).
+
+## Files
+
+| File | Purpose |
+|---|---|
+| `server.py` | Accepts connections, handles accounts, rooms and messages |
+| `db.py` | SQLite storage: users, rooms, messages, and password hashing |
+| `protocol.py` | Message format shared by the server and both clients |
+| `gui_client.py` | tkinter window client |
+| `client.py` | Terminal client |
 
 ## Running it
 
-Open two terminals in this folder.
+Open a terminal for the server and one for each user. All commands run from this folder.
 
 ```bash
-python server.py
-python client.py      # terminal client, one per user
-python gui_client.py  # window client, one per user
+python server.py        # start first; creates chat.db on first run
+python gui_client.py    # window client, one per user
+python client.py        # or the terminal client
 ```
 
-Type a message and press Enter. In the terminal client, type `/quit` to leave.
+The GUI shows a login window. Choose **Register** to create an account, or **Log in** if you already have one. Use the room box and **Join** to switch rooms.
 
-## Design notes
+Terminal client commands:
 
-- The server uses one thread per client. A lock protects the shared client list.
-- Messages are plain UTF-8 lines sent over TCP. Each client gets a copy of every message except its own.
-- The server binds to `127.0.0.1` only, so the chat is reachable from this machine alone.
+- `/join <room>` switches rooms
+- `/rooms` lists rooms
+- `/quit` leaves
 
-## Storage and security (to be completed)
+Passwords must be at least 8 characters and include a number. Usernames are 3 to 20 letters, numbers, or underscores.
 
-This section will describe how messages and accounts are stored once SQLite is added, and what is not encrypted. The current version stores nothing and sends everything in plain text over localhost.
+## Protocol
+
+Messages are one JSON object per line over TCP. `protocol.py` documents each command and event. The server sends the same events to every client, so a new client can be added without changing the server.
+
+## Storage and security
+
+**Stored in `chat.db` (SQLite, in this folder):**
+
+- `users`: username, a random 16-byte salt, and the PBKDF2-SHA256 hash of the password (200,000 iterations). Passwords are never stored.
+- `rooms`: room names.
+- `messages`: room, sender, text, and timestamp.
+
+Usernames are case-insensitive, so `Alice` and `alice` are the same account.
+
+**Not encrypted:**
+
+- Messages are stored as plain text in `chat.db`. Anyone with access to the file can read every message.
+- Traffic between the clients and the server is plain text over TCP. The server listens on `127.0.0.1` only, so the traffic stays on this machine. It is still unencrypted, so it would be readable by other software on the same machine.
+- There is no TLS and no end-to-end encryption. Only the passwords are protected, by hashing.
+- Login has no rate limiting, so it doesn't protect against password guessing.
+
+For real use, you'd need TLS on the connection, encryption at rest for messages, and rate limiting on login.
 
 ## Ethics and privacy
 

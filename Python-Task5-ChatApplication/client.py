@@ -1,52 +1,67 @@
-"""Chat client: connects to the server, sends typed messages, and prints
-incoming messages as they arrive."""
+"""Terminal chat client. Start server.py first, then run this in each terminal."""
 
+import getpass
+import os
 import socket
 import sys
 import threading
 
+from protocol import LineReader, render, send
+
 HOST = "127.0.0.1"
 PORT = 5000
+HELP = "Commands: /join <room>   /rooms   /quit"
 
 
-def receive(sock):
-    """Print anything the server sends until the connection closes."""
-    try:
-        while True:
-            data = sock.recv(1024)
-            if not data:
-                print("\n[client] server closed the connection")
-                break
-            print(data.decode("utf-8"), end="")
-    except OSError:
-        print("\n[client] lost connection to server")
-    finally:
-        sock.close()
+def listen(reader):
+    """Print every event from the server. Exit if the connection drops or login fails."""
+    while True:
+        try:
+            msg = reader.read()
+        except (OSError, ValueError):
+            msg = None
+        if msg is None:
+            print("\n[disconnected from server]", flush=True)
+            os._exit(0)
+        print(render(msg), flush=True)
+        if msg.get("type") == "error" and msg.get("event") == "login":
+            os._exit(1)
 
 
 def main():
-    name = input("Enter your name: ").strip() or "anonymous"
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        sock.connect((HOST, PORT))
-    except ConnectionRefusedError:
+        sock = socket.create_connection((HOST, PORT))
+    except OSError:
         sys.exit("Could not connect. Is server.py running?")
 
-    sock.sendall(name.encode("utf-8"))
-    threading.Thread(target=receive, args=(sock,), daemon=True).start()
+    reader = LineReader(sock)
+    threading.Thread(target=listen, args=(reader,), daemon=True).start()
+
+    choice = input("1) Log in   2) Register\n> ").strip()
+    cmd = "register" if choice == "2" else "login"
+    username = input("Username: ").strip()
+    password = getpass.getpass("Password: ")
+    send(sock, {"cmd": cmd, "username": username, "password": password})
+    print(HELP)
 
     try:
         while True:
-            text = input()
-            if text.lower() in ("/quit", "/exit"):
+            line = input().strip()
+            if not line:
+                continue
+            if line == "/quit":
+                send(sock, {"cmd": "quit"})
                 break
-            if text.strip():
-                sock.sendall(text.encode("utf-8"))
-    except (KeyboardInterrupt, EOFError):
+            if line == "/rooms":
+                send(sock, {"cmd": "rooms"})
+            elif line.startswith("/join "):
+                send(sock, {"cmd": "join", "room": line[len("/join "):]})
+            else:
+                send(sock, {"cmd": "say", "text": line})
+    except (EOFError, KeyboardInterrupt, OSError):
         pass
     finally:
         sock.close()
-        print("[client] disconnected")
 
 
 if __name__ == "__main__":
